@@ -1,0 +1,20 @@
+# Design mockups & reference images (kept local, not part of the app)
+*.jpg
+*.jpeg
+*.png
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+
+# Editor folders
+.vscode/
+.idea/
+
+# Local-only notes / scratch
+*.local
+*.draft

@@ -1,0 +1,913 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asunius — AI Generator</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --surface: #171a21;
+    --surface-2: #1e222b;
+    --border: #2a2f3a;
+    --text: #e8eaf0;
+    --text-dim: #9aa0ad;
+    --accent: #7c5cff;
+    --accent-2: #4f7cff;
+    --accent-grad: linear-gradient(135deg, #7c5cff 0%, #4f7cff 100%);
+    --danger: #ff5c7c;
+    --radius: 14px;
+    --radius-sm: 9px;
+    --shadow: 0 8px 30px rgba(0,0,0,.35);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f6f7fb;
+      --surface: #ffffff;
+      --surface-2: #f0f2f8;
+      --border: #e2e5ee;
+      --text: #1a1d26;
+      --text-dim: #6b7280;
+      --shadow: 0 8px 30px rgba(20,30,60,.10);
+    }
+  }
+  :root[data-theme="dark"] { /* keep dark tokens explicit */ }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent-2); }
+  button { font: inherit; }
+
+  /* Layout */
+  .app { display: flex; flex-direction: column; min-height: 100vh; }
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 18px;
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; letter-spacing: -.2px; }
+  .logo {
+    width: 30px; height: 30px; border-radius: 8px; background: var(--accent-grad);
+    display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 16px;
+    box-shadow: 0 4px 12px rgba(124,92,255,.4);
+  }
+  .tabs { display: flex; gap: 4px; margin-left: auto; }
+  .tab {
+    border: 0; background: transparent; color: var(--text-dim);
+    padding: 8px 14px; border-radius: 999px; cursor: pointer; font-weight: 600;
+    transition: .15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { background: var(--surface-2); color: var(--text); }
+  .icon-btn {
+    border: 1px solid var(--border); background: var(--surface);
+    width: 36px; height: 36px; border-radius: 10px; cursor: pointer;
+    display: grid; place-items: center; color: var(--text-dim);
+  }
+  .icon-btn:hover { color: var(--text); border-color: var(--accent); }
+  .lang-select {
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    height: 36px; width: 92px; border-radius: 10px; padding: 0 6px; cursor: pointer;
+    font: inherit; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .lang-select:hover { border-color: var(--accent); }
+
+  main { flex: 1; padding: 28px 18px 60px; max-width: 1080px; width: 100%; margin: 0 auto; }
+  .view { display: none; }
+  .view.active { display: block; }
+  .view-head { margin-bottom: 22px; }
+  .view-head h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: -.5px; }
+  .view-head p { margin: 0; color: var(--text-dim); }
+
+  /* Hero / home */
+  .hero {
+    text-align: center; padding: 56px 18px 40px;
+  }
+  .hero h1 {
+    font-size: clamp(28px, 6vw, 44px); margin: 0 0 14px; letter-spacing: -1px;
+    background: var(--accent-grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero p { color: var(--text-dim); max-width: 560px; margin: 0 auto 28px; font-size: 16px; }
+  .hero-cta { display: inline-flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .btn {
+    border: 0; border-radius: var(--radius-sm); cursor: pointer; padding: 11px 18px;
+    font-weight: 600; transition: .15s; display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-primary { background: var(--accent-grad); color: #fff; box-shadow: 0 6px 18px rgba(124,92,255,.35); }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-primary:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
+  .btn-ghost { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--accent); }
+
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 48px; }
+  .feature {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 22px; transition: .18s;
+  }
+  .feature:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: var(--shadow); }
+  .feature .ico { width: 40px; height: 40px; border-radius: 10px; background: var(--surface-2); display: grid; place-items: center; font-size: 20px; margin-bottom: 12px; }
+  .feature h3 { margin: 0 0 6px; font-size: 16px; }
+  .feature p { margin: 0; color: var(--text-dim); font-size: 13.5px; }
+
+  /* Generate form */
+  .gen-grid { display: grid; grid-template-columns: 1fr; gap: 22px; }
+  @media (min-width: 820px) { .gen-grid { grid-template-columns: 420px 1fr; align-items: start; } }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 20px; box-shadow: var(--shadow);
+  }
+  .field { margin-bottom: 16px; }
+  .field:last-child { margin-bottom: 0; }
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-dim); }
+  input[type=text], textarea, select {
+    width: 100%; background: var(--surface-2); border: 1px solid var(--border);
+    color: var(--text); border-radius: var(--radius-sm); padding: 11px 12px; font: inherit;
+    transition: .15s;
+  }
+  input[type=text]:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,92,255,.18); }
+  textarea { resize: vertical; min-height: 90px; }
+  .seg { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+  .seg button {
+    flex: 1; border: 0; background: transparent; color: var(--text-dim); padding: 8px;
+    border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13.5px; transition: .15s;
+  }
+  .seg button.active { background: var(--surface); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .hint { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+  .gen-actions { display: flex; gap: 10px; align-items: center; margin-top: 4px; }
+  .gen-actions .btn-primary { flex: 1; justify-content: center; }
+
+  /* Output */
+  .output-area { min-height: 320px; display: flex; flex-direction: column; }
+  .output-empty {
+    flex: 1; display: grid; place-items: center; text-align: center; color: var(--text-dim);
+    border: 1px dashed var(--border); border-radius: var(--radius); padding: 40px;
+  }
+  .spinner { width: 26px; height: 26px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 14px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .out-img {
+    width: 100%; border-radius: var(--radius); display: block; background: var(--surface-2);
+    box-shadow: var(--shadow);
+  }
+  .out-text { white-space: pre-wrap; word-wrap: break-word; }
+  .out-bar { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .meta-chip { font-size: 12px; color: var(--text-dim); background: var(--surface-2); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); }
+
+  /* History */
+  .history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; }
+  .hist-item {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; cursor: pointer; transition: .16s;
+  }
+  .hist-item:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: var(--shadow); }
+  .hist-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; background: var(--surface-2); display: block; }
+  .hist-text-thumb { width: 100%; aspect-ratio: 1; padding: 12px; font-size: 12px; color: var(--text-dim); overflow: hidden; background: var(--surface-2); }
+  .hist-meta { padding: 10px 12px; }
+  .hist-meta .t { font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hist-meta .d { font-size: 11px; color: var(--text-dim); }
+  .empty-state { text-align: center; color: var(--text-dim); padding: 60px 20px; }
+
+  /* Settings */
+  .set-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .set-row:last-child { border-bottom: 0; }
+  .set-row .lbl { font-weight: 600; }
+  .set-row .desc { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
+  .switch { position: relative; width: 44px; height: 26px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .track { position: absolute; inset: 0; background: var(--border); border-radius: 999px; transition: .2s; }
+  .switch .track::before { content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+  .switch input:checked + .track { background: var(--accent); }
+  .switch input:checked + .track::before { transform: translateX(18px); }
+  .key-input { display: flex; gap: 8px; }
+  .key-input input { flex: 1; }
+
+  /* Modal */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; place-items: center; z-index: 50; padding: 20px; }
+  .modal-bg.open { display: grid; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); max-width: 520px; width: 100%; max-height: 85vh; overflow: auto; padding: 22px; box-shadow: var(--shadow); }
+  .modal h3 { margin: 0 0 6px; }
+  .modal .close { float: right; cursor: pointer; color: var(--text-dim); font-size: 20px; border: 0; background: none; }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 12px 18px; border-radius: 999px; box-shadow: var(--shadow); z-index: 60;
+    opacity: 0; transition: .25s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+
+  /* footer note */
+  .note { font-size: 12px; color: var(--text-dim); text-align: center; margin-top: 30px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">A</div>
+      <span>Asunius</span>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-view="home" data-i18n="tab_home">Home</button>
+      <button class="tab" data-view="generate" data-i18n="tab_generate">Generate</button>
+      <button class="tab" data-view="history" data-i18n="tab_history">History</button>
+      <button class="tab" data-view="settings" data-i18n="tab_settings">Settings</button>
+    </nav>
+    <button class="icon-btn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">◐</button>
+    <select id="langSelect" class="lang-select" aria-label="Language"></select>
+  </header>
+
+  <main>
+    <!-- HOME -->
+    <section class="view active" id="view-home">
+      <div class="hero">
+        <h1 data-i18n="home_hero_title">Generate anything, instantly.</h1>
+        <p data-i18n="home_hero_sub">AI image and writing generation in one place. Describe what you want and watch it appear — no sign-up, no setup, free to start.</p>
+        <div class="hero-cta">
+          <button class="btn btn-primary" data-go="generate" data-i18n="home_cta_start">Start creating →</button>
+          <button class="btn btn-ghost" data-go="history" data-i18n="home_cta_history">View history</button>
+        </div>
+      </div>
+      <div class="features">
+        <div class="feature"><div class="ico">🎨</div><h3 data-i18n="feat_img_title">AI Images</h3><p data-i18n="feat_img_desc">Turn a text prompt into a unique image. Free, unlimited, no API key required.</p></div>
+        <div class="feature"><div class="ico">✍️</div><h3 data-i18n="feat_write_title">AI Writing</h3><p data-i18n="feat_write_desc">Generate captions, ad copy, stories, or any text. Add your Claude key for the best results.</p></div>
+        <div class="feature"><div class="ico">📚</div><h3 data-i18n="feat_hist_title">History</h3><p data-i18n="feat_hist_desc">Everything you create is saved locally in your browser. Revisit and reuse anytime.</p></div>
+        <div class="feature"><div class="ico">🔒</div><h3 data-i18n="feat_priv_title">Private</h3><p data-i18n="feat_priv_desc">Keys and history never leave your device unless you choose to export them.</p></div>
+      </div>
+    </section>
+
+    <!-- GENERATE -->
+    <section class="view" id="view-generate">
+      <div class="view-head">
+        <h1 data-i18n="gen_title">Generate</h1>
+        <p data-i18n="gen_sub">Create an image or a piece of writing from a prompt.</p>
+      </div>
+      <div class="gen-grid">
+        <div class="card" id="genForm">
+          <div class="seg" id="modeSeg">
+            <button class="active" data-mode="image" data-i18n="mode_image">🎨 Image</button>
+            <button data-mode="text" data-i18n="mode_text">✍️ Writing</button>
+          </div>
+          <div class="field" style="margin-top:16px">
+            <label id="promptLabel" data-i18n="field_prompt">Prompt</label>
+            <textarea id="prompt" data-i18n-ph="ph_prompt_image" placeholder="A serene mountain lake at sunrise, misty, photorealistic"></textarea>
+          </div>
+          <div id="imageOpts">
+            <div class="row-2">
+              <div class="field">
+                <label data-i18n="field_style">Style</label>
+                <select id="style">
+                  <option value="" data-i18n="style_none">None</option>
+                  <option value="photorealistic" data-i18n="style_photorealistic">Photorealistic</option>
+                  <option value="digital art" data-i18n="style_digital">Digital art</option>
+                  <option value="oil painting" data-i18n="style_oil">Oil painting</option>
+                  <option value="anime">Anime</option>
+                  <option value="3d render" data-i18n="style_3d">3D render</option>
+                  <option value="watercolor" data-i18n="style_watercolor">Watercolor</option>
+                  <option value="pixel art" data-i18n="style_pixel">Pixel art</option>
+                </select>
+              </div>
+              <div class="field">
+                <label data-i18n="field_size">Size</label>
+                <select id="size">
+                  <option value="1024x1024" data-i18n="size_square_1024">Square 1024</option>
+                  <option value="1024x1536" data-i18n="size_portrait">Portrait 1024×1536</option>
+                  <option value="1536x1024" data-i18n="size_landscape">Landscape 1536×1024</option>
+                  <option value="768x768" data-i18n="size_square_768">Square 768</option>
+                </select>
+              </div>
+            </div>
+            <div class="row-2">
+              <div class="field">
+                <label data-i18n="field_model">Model</label>
+                <select id="model">
+                  <option value="flux">Flux</option>
+                  <option value="turbo" data-i18n="model_turbo">Turbo (fast)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label data-i18n="field_seed">Seed (optional)</label>
+                <input type="text" id="seed" data-i18n-ph="ph_seed" placeholder="random">
+              </div>
+            </div>
+          </div>
+          <div id="textOpts" style="display:none">
+            <div class="row-2">
+              <div class="field">
+                <label data-i18n="field_type">Type</label>
+                <select id="textType">
+                  <option value="generic" data-i18n="type_generic">General</option>
+                  <option value="caption" data-i18n="type_caption">Social caption</option>
+                  <option value="ad" data-i18n="type_ad">Ad copy</option>
+                  <option value="story" data-i18n="type_story">Short story</option>
+                  <option value="tagline" data-i18n="type_tagline">Tagline</option>
+                  <option value="post" data-i18n="type_post">Blog post</option>
+                </select>
+              </div>
+              <div class="field">
+                <label data-i18n="field_length">Length</label>
+                <select id="textLen">
+                  <option value="short" data-i18n="len_short">Short</option>
+                  <option value="medium" selected data-i18n="len_medium">Medium</option>
+                  <option value="long" data-i18n="len_long">Long</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label data-i18n="field_tone">Tone</label>
+              <select id="tone">
+                <option value="" data-i18n="tone_any">Any</option>
+                <option value="friendly" data-i18n="tone_friendly">Friendly</option>
+                <option value="professional" data-i18n="tone_professional">Professional</option>
+                <option value="playful" data-i18n="tone_playful">Playful</option>
+                <option value="inspiring" data-i18n="tone_inspiring">Inspiring</option>
+                <option value="urgent" data-i18n="tone_urgent">Urgent</option>
+              </select>
+            </div>
+            <div class="hint" id="keyHint" data-i18n="hint_key">💡 Add a Claude API key in Settings for richer writing. Without a key, a lightweight local generator is used.</div>
+          </div>
+          <div class="gen-actions">
+            <button class="btn btn-primary" id="generateBtn" data-i18n="btn_generate">Generate</button>
+            <button class="btn btn-ghost" id="clearBtn" data-i18n="btn_clear">Clear</button>
+          </div>
+        </div>
+
+        <div class="card output-area" id="outputCard">
+          <div class="output-empty" id="outputEmpty">
+            <div data-i18n="output_empty">Your result will appear here.</div>
+          </div>
+          <div id="outputContent" style="display:none"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="view" id="view-history">
+      <div class="view-head" style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div><h1 data-i18n="hist_title">History</h1><p data-i18n="hist_sub">Your past generations, stored locally.</p></div>
+        <button class="btn btn-ghost" id="clearHist" data-i18n="hist_clear">Clear all</button>
+      </div>
+      <div id="historyList"></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="view-settings">
+      <div class="view-head"><h1 data-i18n="set_title">Settings</h1><p data-i18n="set_sub">Configure your keys and preferences.</p></div>
+      <div class="card">
+        <div class="set-row" style="flex-direction:column;align-items:stretch;gap:10px">
+          <div><div class="lbl" data-i18n="set_key_title">Claude API key</div><div class="desc" data-i18n="set_key_desc">For AI writing generation. Stored only in this browser. Leave empty to use the free local generator.</div></div>
+          <div class="key-input">
+            <input type="password" id="apiKey" placeholder="sk-ant-...">
+            <button class="btn btn-ghost" id="saveKey" data-i18n="btn_save">Save</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <div><div class="lbl" data-i18n="set_theme_title">Theme</div><div class="desc" data-i18n="set_theme_desc">Light or dark appearance.</div></div>
+          <button class="btn btn-ghost" id="themeBtn" data-i18n="set_theme_toggle">Toggle</button>
+        </div>
+        <div class="set-row">
+          <div><div class="lbl" data-i18n="set_savehist_title">Save to history</div><div class="desc" data-i18n="set_savehist_desc">Keep generations locally so you can revisit them.</div></div>
+          <label class="switch"><input type="checkbox" id="saveHist" checked><span class="track"></span></label>
+        </div>
+        <div class="set-row">
+          <div><div class="lbl" data-i18n="set_export_title">Export history</div><div class="desc" data-i18n="set_export_desc">Download all saved generations as JSON.</div></div>
+          <button class="btn btn-ghost" id="exportBtn" data-i18n="set_export_btn">Export</button>
+        </div>
+        <div class="set-row">
+          <div><div class="lbl" data-i18n="set_lang_title">Language</div><div class="desc" data-i18n="set_lang_desc">Interface language.</div></div>
+          <select id="langSelect2" class="lang-select"></select>
+        </div>
+      </div>
+      <p class="note" data-i18n="set_footer">Asunius · images via Pollinations (free) · writing via Claude or local fallback.</p>
+    </section>
+  </main>
+</div>
+
+<!-- Detail modal -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal" id="modalContent"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+
+// ---------- i18n ----------
+const LANGS = { en: "English", id: "Bahasa Indonesia" };
+// Native names the models understand when told which language to respond in.
+const LANG_NAME = { en: "English", id: "Indonesian" };
+// Art-direction keywords mapped to English, since image models are trained mostly on English.
+const STYLE_EN = {
+  "photorealistic": "photorealistic", "digital art": "digital art",
+  "oil painting": "oil painting", "3d render": "3d render",
+  "watercolor": "watercolor", "pixel art": "pixel art",
+};
+const I18N = {
+  en: {
+    tab_home: "Home", tab_generate: "Generate", tab_history: "History", tab_settings: "Settings",
+    home_hero_title: "Generate anything, instantly.",
+    home_hero_sub: "AI image and writing generation in one place. Describe what you want and watch it appear — no sign-up, no setup, free to start.",
+    home_cta_start: "Start creating →", home_cta_history: "View history",
+    feat_img_title: "AI Images", feat_img_desc: "Turn a text prompt into a unique image. Free, unlimited, no API key required.",
+    feat_write_title: "AI Writing", feat_write_desc: "Generate captions, ad copy, stories, or any text. Add your Claude key for the best results.",
+    feat_hist_title: "History", feat_hist_desc: "Everything you create is saved locally in your browser. Revisit and reuse anytime.",
+    feat_priv_title: "Private", feat_priv_desc: "Keys and history never leave your device unless you choose to export them.",
+    gen_title: "Generate", gen_sub: "Create an image or a piece of writing from a prompt.",
+    mode_image: "🎨 Image", mode_text: "✍️ Writing",
+    field_prompt: "Prompt", field_prompt_text: "What do you want to write about?",
+    ph_prompt_image: "A serene mountain lake at sunrise, misty, photorealistic",
+    ph_prompt_text: "A launch announcement for my new coffee brand, emphasize sustainability",
+    field_style: "Style", style_none: "None", style_photorealistic: "Photorealistic", style_digital: "Digital art",
+    style_oil: "Oil painting", style_3d: "3D render", style_watercolor: "Watercolor", style_pixel: "Pixel art",
+    field_size: "Size", size_square_1024: "Square 1024", size_portrait: "Portrait 1024×1536", size_landscape: "Landscape 1536×1024", size_square_768: "Square 768",
+    field_model: "Model", model_turbo: "Turbo (fast)",
+    field_seed: "Seed (optional)", ph_seed: "random",
+    field_type: "Type", type_generic: "General", type_caption: "Social caption", type_ad: "Ad copy", type_story: "Short story", type_tagline: "Tagline", type_post: "Blog post",
+    field_length: "Length", len_short: "Short", len_medium: "Medium", len_long: "Long",
+    field_tone: "Tone", tone_any: "Any", tone_friendly: "Friendly", tone_professional: "Professional", tone_playful: "Playful", tone_inspiring: "Inspiring", tone_urgent: "Urgent",
+    hint_key: "💡 Add a Claude API key in Settings for richer writing. Without a key, a lightweight local generator is used.",
+    btn_generate: "Generate", btn_clear: "Clear", btn_save: "Save",
+    output_empty: "Your result will appear here.",
+    loading: "Generating…", empty_response: "(empty response)",
+    img_fail: "Image generation failed. Try again or simplify your prompt.",
+    enter_prompt: "Enter a prompt first", copied: "Copied",
+    out_download: "⬇ Download", out_copy_link: "Copy link", out_copy_text: "📋 Copy text",
+    chip_random: "random", chip_seed: "seed",
+    hist_title: "History", hist_sub: "Your past generations, stored locally.", hist_clear: "Clear all",
+    hist_empty: "No generations yet.", hist_first: "Create your first →",
+    hist_confirm_clear: "Delete all history?", hist_cleared: "History cleared",
+    modal_delete: "Delete", modal_copy: "📋 Copy", deleted: "Deleted", exported: "Exported",
+    set_title: "Settings", set_sub: "Configure your keys and preferences.",
+    set_key_title: "Claude API key", set_key_desc: "For AI writing generation. Stored only in this browser. Leave empty to use the free local generator.",
+    set_theme_title: "Theme", set_theme_desc: "Light or dark appearance.", set_theme_toggle: "Toggle",
+    set_savehist_title: "Save to history", set_savehist_desc: "Keep generations locally so you can revisit them.",
+    set_export_title: "Export history", set_export_desc: "Download all saved generations as JSON.", set_export_btn: "Export",
+    set_lang_title: "Language", set_lang_desc: "Interface language.",
+    set_footer: "Asunius · images via Pollinations (free) · writing via Claude or local fallback.",
+    key_saved: "API key saved", key_cleared: "API key cleared",
+    // local writing templates
+    loc_caption: [
+      "{p} — sometimes the simple things say it all. ✨",
+      "Here's to {p}. Swipe to see more →",
+      "{p}{tone}. Tag someone who needs this today.",
+    ],
+    loc_ad: [
+      "Meet your new favorite: {p}. Crafted for people who care. Try it today.",
+      "Don't just imagine {p}. Live it. Limited time — discover more now.",
+      "{p}{tone}. Built different, priced fair. Shop the collection.",
+    ],
+    loc_tagline: [
+      "{p}. Redefined.",
+      "Where {p} meets possibility.",
+      "{p} — done right.",
+    ],
+    loc_story: [
+      "The morning began like any other, except today {p} was finally within reach. She paused, took a breath, and stepped forward.",
+      "Nobody thought {p} would change everything. They were wrong.",
+    ],
+    loc_post: [
+      "Why {p} matters more than you think — and what to do about it this week.",
+      "Let's talk about {p}. It's easy to overlook, but the impact is real.",
+    ],
+    loc_generic: [
+      "Here's a take on {p}{tone}: it's worth approaching with curiosity and a willingness to experiment.",
+      "{p} is one of those things that rewards attention.",
+    ],
+    loc_long_suffix: "\n\nWhat makes {p} worth your time is the detail behind it. Start small, stay consistent, and the results compound. Whether you're just exploring or already committed, the key is to keep showing up and refining as you go.",
+    loc_long_tone: "\n\nIn short: approach {p}{tone}, and you'll get further than you expect.",
+    loc_tone: " with a {tone} tone",
+    // Claude prompt guidance (kept in English for reliability; Claude follows English instructions well and outputs the target language)
+    claude_len: { short: "1-2 sentences", medium: "1 short paragraph", long: "2-3 paragraphs" },
+    claude_kind: {
+      generic: "Write about the topic.",
+      caption: "Write a social media caption.",
+      ad: "Write advertising copy.",
+      story: "Write a short story.",
+      tagline: "Write a catchy tagline.",
+      post: "Write a blog post opening.",
+    },
+    claude_tone: " Use a {tone} tone.",
+    claude_respond: " Write your entire response in {lang}.",
+  },
+  id: {
+    tab_home: "Beranda", tab_generate: "Buat", tab_history: "Riwayat", tab_settings: "Pengaturan",
+    home_hero_title: "Buat apa saja, seketika.",
+    home_hero_sub: "Buat gambar dan tulisan AI dalam satu tempat. Jelaskan yang Anda inginkan dan saksikan muncul — tanpa daftar, tanpa setup, gratis untuk mulai.",
+    home_cta_start: "Mulai membuat →", home_cta_history: "Lihat riwayat",
+    feat_img_title: "Gambar AI", feat_img_desc: "Ubah deskripsi teks menjadi gambar unik. Gratis, tanpa batas, tanpa kunci API.",
+    feat_write_title: "Tulisan AI", feat_write_desc: "Buat caption, iklan, cerita, atau teks apa pun. Tambahkan kunci Claude untuk hasil terbaik.",
+    feat_hist_title: "Riwayat", feat_hist_desc: "Semua yang Anda buat tersimpan lokal di peramban. Tinjau dan pakai lagi kapan saja.",
+    feat_priv_title: "Privat", feat_priv_desc: "Kunci dan riwayat tidak meninggalkan perangkat Anda kecuali Anda memilih untuk mengekspornya.",
+    gen_title: "Buat", gen_sub: "Buat gambar atau tulisan dari deskripsi.",
+    mode_image: "🎨 Gambar", mode_text: "✍️ Tulisan",
+    field_prompt: "Deskripsi", field_prompt_text: "Apa yang ingin Anda tulis?",
+    ph_prompt_image: "Danau pegunungan yang tenang saat matahari terbit, berkabut, fotorealistik",
+    ph_prompt_text: "Pengumuman peluncuran merek kopi baru saya, tekankan keberlanjutan",
+    field_style: "Gaya", style_none: "Tidak ada", style_photorealistic: "Fotorealistik", style_digital: "Seni digital",
+    style_oil: "Lukisan cat minyak", style_3d: "Render 3D", style_watercolor: "Cat air", style_pixel: "Seni piksel",
+    field_size: "Ukuran", size_square_1024: "Persegi 1024", size_portrait: "Potret 1024×1536", size_landscape: "Lanskap 1536×1024", size_square_768: "Persegi 768",
+    field_model: "Model", model_turbo: "Turbo (cepat)",
+    field_seed: "Seed (opsional)", ph_seed: "acak",
+    field_type: "Jenis", type_generic: "Umum", type_caption: "Caption medsos", type_ad: "Teks iklan", type_story: "Cerita pendek", type_tagline: "Tagline", type_post: "Posting blog",
+    field_length: "Panjang", len_short: "Pendek", len_medium: "Sedang", len_long: "Panjang",
+    field_tone: "Nada", tone_any: "Bebas", tone_friendly: "Ramah", tone_professional: "Profesional", tone_playful: "Ceria", tone_inspiring: "Menginspirasi", tone_urgent: "Mendesak",
+    hint_key: "💡 Tambahkan kunci API Claude di Pengaturan untuk tulisan yang lebih kaya. Tanpa kunci, generator lokal ringan digunakan.",
+    btn_generate: "Buat", btn_clear: "Bersihkan", btn_save: "Simpan",
+    output_empty: "Hasil Anda akan muncul di sini.",
+    loading: "Membuat…", empty_response: "(respons kosong)",
+    img_fail: "Pembuatan gambar gagal. Coba lagi atau sederhanakan deskripsi Anda.",
+    enter_prompt: "Masukkan deskripsi dulu", copied: "Disalin",
+    out_download: "⬇ Unduh", out_copy_link: "Salin tautan", out_copy_text: "📋 Salin teks",
+    chip_random: "acak", chip_seed: "seed",
+    hist_title: "Riwayat", hist_sub: "Buatahan masa lalu Anda, tersimpan lokal.", hist_clear: "Hapus semua",
+    hist_empty: "Belum ada buatan.", hist_first: "Buat yang pertama →",
+    hist_confirm_clear: "Hapus semua riwayat?", hist_cleared: "Riwayat dihapus",
+    modal_delete: "Hapus", modal_copy: "📋 Salin", deleted: "Dihapus", exported: "Diekspor",
+    set_title: "Pengaturan", set_sub: "Konfigurasikan kunci dan preferensi Anda.",
+    set_key_title: "Kunci API Claude", set_key_desc: "Untuk pembuatan tulisan AI. Tersimpan hanya di peramban ini. Kosongkan untuk menggunakan generator lokal gratis.",
+    set_theme_title: "Tema", set_theme_desc: "Tampilan terang atau gelap.", set_theme_toggle: "Ubah",
+    set_savehist_title: "Simpan ke riwayat", set_savehist_desc: "Simpan buatan secara lokal agar bisa ditinjau kembali.",
+    set_export_title: "Ekspor riwayat", set_export_desc: "Unduh semua buatan sebagai JSON.", set_export_btn: "Ekspor",
+    set_lang_title: "Bahasa", set_lang_desc: "Bahasa antarmuka.",
+    set_footer: "Asunius · gambar via Pollinations (gratis) · tulisan via Claude atau lokal.",
+    key_saved: "Kunci API disimpan", key_cleared: "Kunci API dihapus",
+    loc_caption: [
+      "{p} — kadang hal sederhana mengatakan semuanya. ✨",
+      "Buat {p}. Geser untuk melihat lainnya →",
+      "{p}{tone}. Tag seseorang yang membutuhkan ini hari ini.",
+    ],
+    loc_ad: [
+      "Kenali favorit baru Anda: {p}. Dibuat untuk orang yang peduli. Coba hari ini.",
+      "Jangan sekadar membayangkan {p}. Hidupi. Waktu terbatas — temukan sekarang.",
+      "{p}{tone}. Berbeda, harga adil. Beli koleksinya.",
+    ],
+    loc_tagline: [
+      "{p}. Didefinisikan ulang.",
+      "Tempat {p} bertemu kemungkinan.",
+      "{p} — done right.",
+    ],
+    loc_story: [
+      "Pagi dimulai seperti biasa, kecuali hari ini {p} akhirnya tercapai. Dia berhenti, menarik napas, dan melangkah maju.",
+      "Tak ada yang menyangka {p} akan mengubah segalanya. Mereka salah.",
+    ],
+    loc_post: [
+      "Mengapa {p} lebih penting dari yang Anda kira — dan apa yang harus dilakukan minggu ini.",
+      "Mari bicara tentang {p}. Mudah diabaikan, tapi dampaknya nyata.",
+    ],
+    loc_generic: [
+      "Pandangan tentang {p}{tone}: layak didekati dengan rasa ingin tahu dan keberanian untuk mencoba.",
+      "{p} adalah salah satu hal yang menghargai perhatian.",
+    ],
+    loc_long_suffix: "\n\nYang membuat {p} layak untuk Anda adalah detail di baliknya. Mulai kecil, konsisten, dan hasilnya berlipat. Baik baru menjajaki atau sudah berkomitmen, kuncinya adalah terus muncul dan menyempurnakan seiring berjalan.",
+    loc_long_tone: "\n\nSingkatnya: dekati {p}{tone}, dan Anda akan lebih jauh dari yang diperkirakan.",
+    loc_tone: " dengan nada {tone}",
+  },
+};
+let lang = localStorage.getItem("asunius_lang") || "en";
+function t(key, vars) {
+  let s = (I18N[lang] && I18N[lang][key]) || (I18N.en[key] ?? key);
+  if (vars) for (const k in vars) s = s.replace(new RegExp("\\{"+k+"\\}", "g"), vars[k]);
+  return s;
+}
+function applyLang() {
+  document.documentElement.setAttribute("lang", lang);
+  $$("[data-i18n]").forEach(el => { el.textContent = t(el.getAttribute("data-i18n")); });
+  $$("[data-i18n-ph]").forEach(el => { el.setAttribute("placeholder", t(el.getAttribute("data-i18n-ph"))); });
+  // prompt label depends on current mode
+  $("#promptLabel").textContent = state.mode === "image" ? t("field_prompt") : t("field_prompt_text");
+  $("#prompt").setAttribute("placeholder", state.mode === "image" ? t("ph_prompt_image") : t("ph_prompt_text"));
+  // sync both selects
+  [$("#langSelect"), $("#langSelect2")].forEach(sel => { if (sel) sel.value = lang; });
+  // refresh dynamic views
+  renderHistory();
+}
+function setLang(l) {
+  lang = l; localStorage.setItem("asunius_lang", lang); applyLang();
+}
+// populate both language selects
+[$("#langSelect"), $("#langSelect2")].forEach(sel => {
+  if (!sel) return;
+  sel.innerHTML = Object.entries(LANGS).map(([code, name]) => `<option value="${code}">${name}</option>`).join("");
+  sel.value = lang;
+  sel.addEventListener("change", () => setLang(sel.value));
+});
+
+// ---------- State ----------
+const state = {
+  mode: "image",
+  history: JSON.parse(localStorage.getItem("asunius_history") || "[]"),
+  apiKey: localStorage.getItem("asunius_apikey") || "",
+  theme: localStorage.getItem("asunius_theme") || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"),
+  saveHist: localStorage.getItem("asunius_savehist") !== "false",
+};
+
+function applyTheme() {
+  document.documentElement.setAttribute("data-theme", state.theme);
+  $("#themeToggle").textContent = state.theme === "dark" ? "☀" : "◐";
+}
+applyTheme();
+
+// ---------- Navigation ----------
+function go(view) {
+  $$(".view").forEach(v => v.classList.remove("active"));
+  $("#view-" + view).classList.add("active");
+  $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.view === view));
+  if (view === "history") renderHistory();
+  window.scrollTo({top: 0, behavior: "smooth"});
+}
+$$(".tab").forEach(t => t.addEventListener("click", () => go(t.dataset.view)));
+$$("[data-go]").forEach(b => b.addEventListener("click", () => go(b.dataset.go)));
+
+// ---------- Theme toggle ----------
+function toggleTheme() {
+  state.theme = state.theme === "dark" ? "light" : "dark";
+  localStorage.setItem("asunius_theme", state.theme);
+  applyTheme();
+}
+$("#themeToggle").addEventListener("click", toggleTheme);
+$("#themeBtn").addEventListener("click", toggleTheme);
+
+// ---------- Toast ----------
+let toastTimer;
+function toast(msg) {
+  const el = $("#toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
+}
+
+// ---------- Mode switching ----------
+$("#modeSeg").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  state.mode = b.dataset.mode;
+  $$("#modeSeg button").forEach(x => x.classList.toggle("active", x === b));
+  $("#imageOpts").style.display = state.mode === "image" ? "" : "none";
+  $("#textOpts").style.display = state.mode === "text" ? "" : "none";
+  $("#promptLabel").textContent = state.mode === "image" ? t("field_prompt") : t("field_prompt_text");
+  $("#prompt").setAttribute("placeholder", state.mode === "image" ? t("ph_prompt_image") : t("ph_prompt_text"));
+});
+
+// ---------- API key ----------
+$("#apiKey").value = state.apiKey;
+$("#saveKey").addEventListener("click", () => {
+  state.apiKey = $("#apiKey").value.trim();
+  localStorage.setItem("asunius_apikey", state.apiKey);
+  toast(state.apiKey ? t("key_saved") : t("key_cleared"));
+});
+$("#saveHist").checked = state.saveHist;
+$("#saveHist").addEventListener("change", e => {
+  state.saveHist = e.target.checked;
+  localStorage.setItem("asunius_savehist", String(state.saveHist));
+});
+
+// ---------- Generate ----------
+$("#clearBtn").addEventListener("click", () => {
+  $("#prompt").value = "";
+  $("#outputContent").style.display = "none";
+  $("#outputEmpty").style.display = "";
+});
+
+$("#generateBtn").addEventListener("click", generate);
+
+async function generate() {
+  const prompt = $("#prompt").value.trim();
+  if (!prompt) { toast(t("enter_prompt")); return; }
+  const btn = $("#generateBtn");
+  btn.disabled = true;
+  showLoading();
+  try {
+    let result;
+    if (state.mode === "image") result = await generateImage(prompt);
+    else result = await generateText(prompt);
+    showResult(result);
+    if (state.saveHist) saveToHistory(result);
+  } catch (err) {
+    showError(err.message || String(err));
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function showLoading() {
+  $("#outputEmpty").style.display = "none";
+  $("#outputContent").style.display = "";
+  $("#outputContent").innerHTML = `<div style="text-align:center;padding:30px"><div class="spinner"></div>${escapeHtml(t("loading"))}</div>`;
+}
+function showError(msg) {
+  $("#outputEmpty").style.display = "none";
+  $("#outputContent").style.display = "";
+  $("#outputContent").innerHTML = `<div style="padding:24px;color:var(--danger)">⚠ ${escapeHtml(msg)}</div>`;
+}
+
+function showResult(r) {
+  $("#outputEmpty").style.display = "none";
+  $("#outputContent").style.display = "";
+  const bar = (chips) => `<div class="out-bar">${chips.map(c => `<span class="meta-chip">${escapeHtml(c)}</span>`).join("")}</div>`;
+  let actions, body;
+  if (r.type === "image") {
+    body = `<img class="out-img" src="${r.url}" alt="${escapeHtml(r.prompt)}">`;
+    actions = `<div class="out-bar">
+      <a class="btn btn-ghost" href="${r.url}" download="asunius-${r.id}.jpg" target="_blank">${escapeHtml(t("out_download"))}</a>
+      <button class="btn btn-ghost" data-copy="${r.url}">${escapeHtml(t("out_copy_link"))}</button>
+    </div>` + bar([r.model, r.size, r.seed ? t("chip_seed")+" "+r.seed : t("chip_random")].filter(Boolean));
+  } else {
+    body = `<div class="out-text">${escapeHtml(r.text)}</div>`;
+    actions = `<div class="out-bar">
+      <button class="btn btn-ghost" data-copy="${attr(r.text)}">${escapeHtml(t("out_copy_text"))}</button>
+    </div>` + bar([t("type_"+r.kind), t("len_"+r.len), r.tone ? t("tone_"+r.tone) : ""].filter(Boolean));
+  }
+  $("#outputContent").innerHTML = body + actions;
+  // wire copy buttons
+  $$("#outputContent [data-copy]").forEach(b => b.addEventListener("click", () => {
+    navigator.clipboard.writeText(b.getAttribute("data-copy")).then(() => toast(t("copied")));
+  }));
+}
+
+// ---------- Image generation (Pollinations, no key) ----------
+async function generateImage(prompt) {
+  const style = $("#style").value;
+  const size = $("#size").value;
+  const model = $("#model").value;
+  const seedRaw = $("#seed").value.trim();
+  const seed = seedRaw ? encodeURIComponent(seedRaw) : Math.floor(Math.random() * 1e9);
+  // Map the chosen style to the English keyword image models understand, regardless of UI language.
+  const styleEn = style ? (STYLE_EN[style] || style) : "";
+  const fullPrompt = styleEn ? `${prompt}, ${styleEn}` : prompt;
+  const [w, h] = size.split("x");
+  const enc = encodeURIComponent(fullPrompt);
+  const url = `https://image.pollinations.ai/prompt/${enc}?width=${w}&height=${h}&model=${model}&seed=${seed}&nologo=true`;
+  // preload to surface errors before showing
+  await preloadImage(url);
+  return { id: uid(), type: "image", prompt, url, model, size, seed, style: styleEn, ts: Date.now() };
+}
+
+function preloadImage(url) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(url);
+    img.onerror = () => rej(new Error(t("img_fail")));
+    img.src = url;
+  });
+}
+
+// ---------- Text generation ----------
+async function generateText(prompt) {
+  const kind = $("#textType").value;
+  const len = $("#textLen").value;
+  const tone = $("#tone").value;
+  let text;
+  if (state.apiKey) {
+    text = await claudeGenerate(prompt, kind, len, tone);
+  } else {
+    text = localGenerate(prompt, kind, len, tone);
+  }
+  return { id: uid(), type: "text", prompt, text, kind, len, tone, ts: Date.now(), source: state.apiKey ? "claude" : "local" };
+}
+
+async function claudeGenerate(prompt, kind, len, tone) {
+  const lenGuide = (t("claude_len") || {})[len] || "1 paragraph";
+  const kindGuide = (t("claude_kind") || {})[kind] || "Write about the topic.";
+  // Only ask for a tone when one is chosen, using the translated tone word.
+  const toneStr = tone ? t("claude_tone", { tone: t("tone_"+tone) }) : "";
+  // Tell Claude which language to write in (skipped for English to keep the prompt minimal).
+  const langName = LANG_NAME[lang] || "English";
+  const respondStr = lang === "en" ? "" : t("claude_respond", { lang: langName });
+  const messages = [{ role: "user", content: `${kindGuide}${toneStr}${respondStr} Length: ${lenGuide}. Topic: ${prompt}` }];
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": state.apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
+    body: JSON.stringify({
+      model: "claude-3-5-sonnet-20241022",
+      max_tokens: 800,
+      messages,
+    }),
+  });
+  if (!res.ok) {
+    const tTxt = await res.text().catch(() => "");
+    throw new Error(`Claude API error ${res.status}: ${tTxt.slice(0,160)}`);
+  }
+  const data = await res.json();
+  return (data.content || []).map(c => c.text || "").join("").trim() || t("empty_response");
+}
+
+// Lightweight local generator — works with no API key.
+function localGenerate(prompt, kind, len, tone) {
+  const p = prompt.replace(/\s+/g, " ").trim();
+  const toneStr = tone ? t("loc_tone", { tone: t("tone_"+tone) }) : "";
+  const vars = { p: escapePlain(p), tone: toneStr };
+  const key = "loc_" + (kind || "generic");
+  let pool = t(key);
+  if (!Array.isArray(pool)) pool = t("loc_generic");
+  let base = pool[Math.floor(Math.random() * pool.length)];
+  base = base.replace(/\{p\}/g, vars.p).replace(/\{tone\}/g, vars.tone);
+  if (len === "long") {
+    base += t("loc_long_suffix").replace(/\{p\}/g, vars.p).replace(/\{tone\}/g, vars.tone);
+    if (tone) base += t("loc_long_tone").replace(/\{p\}/g, vars.p).replace(/\{tone\}/g, vars.tone);
+  }
+  return base;
+}
+
+// ---------- History ----------
+function saveToHistory(r) {
+  state.history.unshift(r);
+  state.history = state.history.slice(0, 100);
+  localStorage.setItem("asunius_history", JSON.stringify(state.history));
+}
+
+function renderHistory() {
+  const list = $("#historyList");
+  if (!state.history.length) {
+    list.innerHTML = `<div class="empty-state">${escapeHtml(t("hist_empty"))} <a href="#" data-go="generate">${escapeHtml(t("hist_first"))}</a></div>`;
+    $$("#historyList [data-go]").forEach(a => a.addEventListener("click", e => { e.preventDefault(); go("generate"); }));
+    return;
+  }
+  list.innerHTML = `<div class="history-grid">` + state.history.map(h => {
+    const thumb = h.type === "image"
+      ? `<img class="hist-thumb" src="${h.url}" alt="" loading="lazy">`
+      : `<div class="hist-text-thumb">${escapeHtml((h.text||"").slice(0,120))}</div>`;
+    const title = h.type === "image" ? h.prompt : (h.text||"").split("\n")[0];
+    const typeLabel = h.type === "image" ? t("mode_image").replace(/^.{2}\s*/, "") : t("mode_text").replace(/^.{2}\s*/, "");
+    return `<div class="hist-item" data-id="${h.id}">${thumb}<div class="hist-meta"><div class="t">${escapeHtml(title)}</div><div class="d">${fmtDate(h.ts)} · ${escapeHtml(typeLabel)}</div></div></div>`;
+  }).join("") + `</div>`;
+  $$("#historyList .hist-item").forEach(el => el.addEventListener("click", () => openDetail(el.dataset.id)));
+}
+
+function openDetail(id) {
+  const h = state.history.find(x => x.id === id); if (!h) return;
+  const body = h.type === "image"
+    ? `<img class="out-img" src="${h.url}" alt="${escapeHtml(h.prompt)}">`
+    : `<div class="out-text">${escapeHtml(h.text)}</div>`;
+  const meta = h.type === "image"
+    ? [h.model, h.size, h.seed ? t("chip_seed")+" "+h.seed : "", fmtDate(h.ts)].filter(Boolean)
+    : [t("type_"+h.kind), t("len_"+h.len), h.tone ? t("tone_"+h.tone) : "", fmtDate(h.ts)].filter(Boolean);
+  $("#modalContent").innerHTML = `
+    <button class="close" id="modalClose">×</button>
+    <h3>${escapeHtml(h.prompt)}</h3>
+    <p class="meta-chip" style="margin-bottom:14px">${meta.map(escapeHtml).join(" · ")}</p>
+    ${body}
+    <div class="out-bar" style="margin-top:14px">
+      ${h.type === "image"
+        ? `<a class="btn btn-ghost" href="${h.url}" download="asunius-${h.id}.jpg" target="_blank">${escapeHtml(t("out_download"))}</a>`
+        : `<button class="btn btn-ghost" id="modalCopy">${escapeHtml(t("modal_copy"))}</button>`}
+      <button class="btn btn-ghost" id="modalDelete">${escapeHtml(t("modal_delete"))}</button>
+    </div>`;
+  $("#modalBg").classList.add("open");
+  $("#modalClose").addEventListener("click", closeModal);
+  if (h.type === "text") $("#modalCopy").addEventListener("click", () => navigator.clipboard.writeText(h.text).then(() => toast(t("copied"))));
+  $("#modalDelete").addEventListener("click", () => {
+    state.history = state.history.filter(x => x.id !== id);
+    localStorage.setItem("asunius_history", JSON.stringify(state.history));
+    closeModal(); renderHistory(); toast(t("deleted"));
+  });
+}
+function closeModal() { $("#modalBg").classList.remove("open"); }
+$("#modalBg").addEventListener("click", e => { if (e.target === $("#modalBg")) closeModal(); });
+
+$("#clearHist").addEventListener("click", () => {
+  if (!state.history.length) return;
+  if (confirm(t("hist_confirm_clear"))) {
+    state.history = [];
+    localStorage.setItem("asunius_history", "[]");
+    renderHistory();
+    toast(t("hist_cleared"));
+  }
+});
+
+$("#exportBtn").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(state.history, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "asunius-history.json"; a.click();
+  URL.revokeObjectURL(url);
+  toast(t("exported"));
+});
+
+// ---------- Utils ----------
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function escapeHtml(s) { return (s||"").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+function escapePlain(s) { return (s||"").replace(/[<>]/g, c => c === "<" ? "‹" : "›"); }
+function attr(s) { return (s||"").replace(/"/g, "&quot;"); }
+function fmtDate(ts) { return new Date(ts).toLocaleString(lang === "id" ? "id-ID" : undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); }
+
+// initial render
+applyLang();
+renderHistory();
+</script>
+</body>
+</html>
